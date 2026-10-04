@@ -1,0 +1,30 @@
+import { useState } from 'react';
+import { Link,useParams } from 'react-router-dom';
+import { CheckCircle2,AlertCircle } from 'lucide-react';
+import { useResource } from '../../hooks/useResource.js';
+import { api,getErrorMessage } from '../../services/api.js';
+import { ErrorNotice,Loading } from '../../components/common/Feedback.jsx';
+export default function AuditDetails(){
+  const {id}=useParams(),resource=useResource('/audits/'+id,{poll:true});
+  const [error,setError]=useState(''),[filter,setFilter]=useState('all'),[busy,setBusy]=useState('');
+  const a=resource.data;
+  async function change(issue,status){setBusy(issue.id);try{await api.patch('/issues/'+issue.id+'/status',{status});await resource.refresh();}catch(e){setError(getErrorMessage(e));}finally{setBusy('');}}
+  if(resource.loading)return <Loading/>;
+  if(!a)return <ErrorNotice message={resource.error}/>;
+  return <><div className="page-heading"><div><p className="eyebrow">SEO audit · {new Date(a.created_at).toLocaleDateString()}</p><h1>{a.website_name}</h1><p className="muted url-text">{a.website_url}</p></div><Link className="button button-outline" to={'/websites/'+a.website_id}>Back to website</Link></div><ErrorNotice message={error||resource.error}/>
+    {['running','queued'].includes(a.status)?<div className="panel audit-progress" role="status"><span className="spinner" aria-hidden="true"/><h2>Analyzing your website</h2><p>{a.progress}</p><p className="muted">You can leave this page. Your results will be saved.</p></div>:a.status==='failed'?<div className="notice error-notice" role="alert"><h2>We couldn’t complete this audit.</h2><p>{a.progress}</p><Link className="text-link" to={'/websites/'+a.website_id}>Return to website and try again</Link></div>:<>
+      <div className="stat-grid">{[['Overall SEO',a.overall_score],['Technical',a.technical_score],['On-page',a.on_page_score],['Content',a.content_score]].map(([label,score])=><div className="stat-card" key={label}><p>{label}</p><strong>{score??'—'}<span> /100</span></strong></div>)}</div>
+      <p className="notice"><CheckCircle2 size={18} aria-hidden="true"/> {a.coverage.pagesCrawled} pages checked · Scoring version {a.scoring_version}. {a.recommendation_status==='ai'?'AI explanations available.':'Recommendations use measured findings and rule-based guidance. AI is currently unavailable.'}</p>
+      <details className="panel coverage-panel"><summary>What this audit measured</summary><p className="muted">{a.coverage.checks} checks across up to {a.coverage.pageLimit} pages. {a.coverage.limited?'This is a sample crawl; more pages may exist.':'Discovered crawlable pages were checked within the crawl limit.'} Robots exclusions: {a.coverage.robotsSkipped}. Unsuccessful page requests: {a.coverage.failedFetches}.</p><p className="muted">Server HTML only. JavaScript-rendered content, search rankings, traffic and Core Web Vitals were not measured. External link destinations were not tested. {a.coverage.readabilityMeasured?'Approximate English readability is shown per page.':'Readability was not measured for this content.'} {a.coverage.keywordUsageMeasured?'Saved keyword phrase matches were counted.':'Save keywords before an audit to count phrase matches.'} This is an audit health score, not a prediction of search rankings.</p></details>
+      <div className="workspace-section-title workspace-section"><div><h2>Your action plan</h2><p className="muted">{a.issues.filter(i=>i.status==='resolved').length} of {a.issues.length} tasks marked resolved. Reaudit to verify changes.</p></div><div className="field compact-field"><label htmlFor="severity">Priority</label><select id="severity" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All priorities</option>{['critical','high','medium','low'].map(s=><option key={s}>{s}</option>)}</select></div></div>
+      {!a.issues.length?<div className="empty-state"><CheckCircle2 aria-hidden="true"/><h2>No issues found in these checks.</h2><p>Review coverage above before interpreting this as a complete site assessment.</p></div>:<div className="issue-list">{a.issues.filter(i=>filter==='all'||i.severity===filter).map(issue=>{
+        const rec=a.recommendations.find(r=>r.issue_id===issue.id);
+        return <article className="issue-card" key={issue.id}><div className="issue-header"><span className={'badge '+issue.severity}>{issue.severity} priority</span><span className="small muted">{issue.category.replace('_',' ')}</span></div><h3>{issue.title}</h3><p className="url-text small muted">{issue.page_url}</p><p>{issue.description}</p>
+          <details><summary>Why it matters & how to fix it</summary><h4>Why it matters</h4><p>{issue.why_it_matters}</p><h4>Recommended action</h4><p>{rec?.recommendation||issue.recommendation}</p>{rec?.suggested_text&&<p className="suggested-text">{rec.suggested_text}</p>}<p className="small muted">Source: {rec?.source==='ai'?'AI recommendation based on verified findings':'Rule-based guidance'}</p></details>
+          <div className="field issue-status"><label htmlFor={'status-'+issue.id}>Task status</label><select id={'status-'+issue.id} value={issue.status} disabled={busy===issue.id} onChange={e=>change(issue,e.target.value)}>{[['open','Open'],['in_progress','In progress'],['resolved','Resolved'],['ignored','Ignored']].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div></article>;
+      })}</div>}
+      <section className="workspace-section"><h2>Crawled pages</h2><div className="page-list">{a.pages.map(p=><div className="panel" key={p.id}><strong className="url-text">{p.url}</strong><p className="muted small">HTTP {p.http_status} · {p.evidence.wordCount} words · {p.evidence.images} images</p><p>{p.evidence.title||'No title found'}</p>{p.evidence.readability&&<p className="muted small">{p.evidence.readability.method}: {p.evidence.readability.score} (heuristic; excluded from score)</p>}{p.evidence.keywordCounts?.length>0&&<p className="muted small">Phrase matches: {p.evidence.keywordCounts.map(k=>k.keyword+' ('+k.count+')').join(', ')}</p>}</div>)}</div></section>
+    </>}
+  </>;
+}
+
