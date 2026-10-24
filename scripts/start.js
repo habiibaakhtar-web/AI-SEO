@@ -24,6 +24,6 @@ if (process.argv.includes("--dev") && process.env.NODE_ENV !== "production") {
   process.env.HOST ||= "0.0.0.0";
   if (!existsSync(resolve(root, "frontend/dist/index.html")))
     throw new Error("Frontend build is missing.");
-  process.chdir(resolve(root, "backend"));
+  // All production paths are resolved from import.meta.url; hosted launchers may prohibit chdir.
   await import("../backend/src/server.js");
 }

@@ -44,7 +44,48 @@ const safeMessages = new Set([
   "SMTP_HOST requires SMTP_USER, SMTP_PASSWORD and MAIL_FROM",
   "Schema migration is already running",
 ]);
-export function startupDiagnostic(error) {
+function redactMessage(message, environment) {
+  let text = String(message || "Unknown error");
+  const privateValues = Object.entries(environment)
+    .filter(
+      ([key, value]) =>
+        /PASSWORD|SECRET|TOKEN|API_KEY|DATABASE_URL|DB_USER|DB_NAME|SMTP_USER/.test(
+          key,
+        ) &&
+        typeof value === "string" &&
+        value.length,
+    )
+    .map(([, value]) => value)
+    .sort((a, b) => b.length - a.length);
+  for (const value of privateValues)
+    text = text.split(value).join("[redacted]");
+  return text
+    .replace(
+      /(?:https?|postgres(?:ql)?|mysql):\/\/[^\s'"<>]+/gi,
+      "[redacted URL]",
+    )
+    .replace(/\bsk-[A-Za-z0-9_-]+/g, "[redacted key]")
+    .replace(/'[^']*'|"[^"]*"|`[^`]*`/g, "[redacted value]")
+    .replace(/[\r\n]+/g, " ")
+    .slice(0, 600);
+}
+function sourceLocations(error) {
+  const frames = String(error?.stack || "")
+    .split("\n")
+    .slice(1);
+  const locations = [];
+  for (const frame of frames) {
+    const match = frame
+      .replace(/\\/g, "/")
+      .match(
+        /(?:backend|scripts|node_modules)\/[A-Za-z0-9_@./-]+\.[cm]?js:\d+:\d+|node:internal\/[A-Za-z0-9_./-]+:\d+:\d+/,
+      );
+    if (match && !locations.includes(match[0])) locations.push(match[0]);
+    if (locations.length === 5) break;
+  }
+  return locations.length ? " Source: " + locations.join(" <- ") : "";
+}
+export function startupDiagnostic(error, environment = process.env) {
   const code =
     typeof error?.code === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(error.code)
       ? error.code
@@ -59,14 +100,18 @@ export function startupDiagnostic(error) {
       ))
   )
     detail = message;
-  if (!detail)
-    detail =
-      "An unexpected startup error occurred. Check the error code and deployment build logs; no raw database queries or credentials are logged.";
+  if (!detail) {
+    const type =
+      typeof error?.name === "string" && /^[A-Za-z]+Error$/.test(error.name)
+        ? error.name
+        : "Error";
+    detail = type + ": " + redactMessage(message, environment);
+  }
   const statement = Number.isInteger(error?.schemaStatement)
     ? ` Schema statement: ${error.schemaStatement}.`
     : "";
   const errno = Number.isInteger(error?.errno)
     ? ` MySQL errno: ${error.errno}.`
     : "";
-  return `${code ? "[" + code + "] " : ""}${detail}${statement}${errno}`;
+  return `${code ? "[" + code + "] " : ""}${detail}${statement}${errno}${sourceLocations(error)}`;
 }

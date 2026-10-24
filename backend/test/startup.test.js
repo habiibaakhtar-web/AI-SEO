@@ -24,8 +24,7 @@ test("startup logs identify missing production settings without printing their v
         JWT_SECRET: "short-secret",
       }),
     (error) =>
-      startupDiagnostic(error) ===
-      "JWT_SECRET must have at least 32 characters.",
+      startupDiagnostic(error).startsWith("JWT_SECRET must have at least 32 characters."),
   );
 });
 test("database startup guidance never logs database passwords, queries or raw messages", () => {
@@ -73,4 +72,25 @@ test("configuration errors list invalid field names and schema failures include 
       message: "private SQL",
     }).includes("private SQL"),
   );
+});
+
+test("unexpected startup errors include a redacted message and relative source locations", () => {
+  const error = new TypeError(
+    "Working directory change is disabled; password=private-password; mysql://user:secret@host/db; sk-private-token",
+  );
+  error.stack =
+    "TypeError: private-password\n at start (file:///home/private/account/scripts/start.js:44:11)\n at connect (file:///home/private/account/backend/src/config/mysqlStore.js:30:5)";
+  const message = startupDiagnostic(error, { DB_PASSWORD: "private-password" });
+  assert.ok(
+    message.includes("TypeError: Working directory change is disabled"),
+  );
+  assert.ok(message.includes("scripts/start.js:44:11"));
+  assert.ok(message.includes("backend/src/config/mysqlStore.js:30:5"));
+  for (const value of [
+    "private-password",
+    "user:secret",
+    "sk-private-token",
+    "/home/private/account",
+  ])
+    assert.ok(!message.includes(value));
 });
