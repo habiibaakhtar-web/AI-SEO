@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS audits (
  scoring_version VARCHAR(255), coverage JSON NOT NULL DEFAULT ('{}'), error_code VARCHAR(255), completed_at DATETIME(3),
  recommendation_status VARCHAR(30) NOT NULL DEFAULT 'pending', progress TEXT NOT NULL, target_url TEXT NOT NULL,
  lease_expires_at DATETIME(3), lease_owner CHAR(36) CHARACTER SET ascii,
- active_website CHAR(36) CHARACTER SET ascii GENERATED ALWAYS AS (CASE WHEN status IN ('queued','running') THEN website_id ELSE NULL END) STORED,
+ active_website CHAR(36) CHARACTER SET ascii DEFAULT NULL,
  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
  UNIQUE KEY audits_one_active (active_website), INDEX audits_website_created (website_id,created_at),
  FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,

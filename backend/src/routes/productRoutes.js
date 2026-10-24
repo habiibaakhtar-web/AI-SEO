@@ -212,7 +212,7 @@ export function productRoutes(db, auth, audits, tools) {
     check(count.total < 10, 429, "You can run up to 10 audits per hour.");
     const row = await one(
       db,
-      "INSERT INTO audits(id,website_id,status,target_url,progress) VALUES($1,$2,'queued',$3,'Waiting to start') RETURNING *",
+      "INSERT INTO audits(id,website_id,status,target_url,progress,active_website) VALUES($1,$2,'queued',$3,'Waiting to start',$2) RETURNING *",
       [randomUUID(), site.id, site.url],
     );
     success(

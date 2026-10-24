@@ -127,7 +127,7 @@ export function auditService(db, tools, { crawler = crawlWebsite } = {}) {
           ],
         );
       await workDb.query(
-        "UPDATE audits SET status='completed',lease_expires_at=NULL,lease_owner=NULL,recommendation_status=$1,progress='Audit complete',completed_at=now(),updated_at=now() WHERE id=$2",
+        "UPDATE audits SET status='completed',active_website=NULL,lease_expires_at=NULL,lease_owner=NULL,recommendation_status=$1,progress='Audit complete',completed_at=now(),updated_at=now() WHERE id=$2",
         [source === "ai" ? "ai" : "rule_based", audit.id],
       );
     } catch (error) {
@@ -137,7 +137,7 @@ export function auditService(db, tools, { crawler = crawlWebsite } = {}) {
           ? "The website returned an HTTP error. Check the URL and try again."
           : "We could not complete this audit. The website may be unavailable or block automated requests.");
       await db.query(
-        "UPDATE audits SET status='failed',lease_expires_at=NULL,lease_owner=NULL,progress=$1,error_code='CRAWL_FAILED',completed_at=now(),updated_at=now() WHERE id=$2",
+        "UPDATE audits SET status='failed',active_website=NULL,lease_expires_at=NULL,lease_owner=NULL,progress=$1,error_code='CRAWL_FAILED',completed_at=now(),updated_at=now() WHERE id=$2",
         [message, audit.id],
       );
     }
@@ -161,7 +161,7 @@ export function auditService(db, tools, { crawler = crawlWebsite } = {}) {
           )
             return null;
           await tx.query(
-            "UPDATE audits SET status='running',lease_owner=$1,lease_expires_at=now()+interval '2 minutes',progress='Starting website checks',updated_at=now() WHERE id=$2",
+            "UPDATE audits SET status='running',active_website=website_id,lease_owner=$1,lease_expires_at=now()+interval '2 minutes',progress='Starting website checks',updated_at=now() WHERE id=$2",
             [randomUUID(), id],
           );
           return row;

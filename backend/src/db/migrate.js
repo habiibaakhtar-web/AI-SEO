@@ -12,12 +12,15 @@ try {
   const executed = rows.map((row) => row.name);
   const pending =
     db.kind === "mysql"
-      ? []
+      ? ["mysql-001-hostinger", "mysql-002-audit-active"].filter(
+          (name) => !executed.includes(name),
+        )
       : [
           "001-core",
           "002-product",
           "003-audit-target",
           "004-audit-leases",
+          "005-audit-active",
         ].filter((name) => !executed.includes(name));
   console.log(
     JSON.stringify({ database: db.kind, executed, pending }, null, 2),

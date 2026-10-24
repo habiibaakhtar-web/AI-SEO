@@ -38,6 +38,7 @@ const child = spawn(
     "--test-concurrency=1",
     "backend/test/product.test.js",
     "backend/test/llm.test.js",
+    "backend/test/mysqlMigration.test.js",
   ],
   { stdio: "inherit", windowsHide: true },
 );

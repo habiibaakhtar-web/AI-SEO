@@ -23,7 +23,7 @@ test("file-backed PostgreSQL retains data when reopened", async () => {
   );
   assert.equal(
     (await db.query("SELECT name FROM app_migrations")).rows.length,
-    4,
+    5,
   );
   await db.close();
 });

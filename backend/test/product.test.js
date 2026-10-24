@@ -51,13 +51,11 @@ test("database: complete account, website, audit, ownership, content and reset f
     owner = request.agent(app),
     stranger = request.agent(app);
   try {
-    const registration = await owner
-      .post("/api/auth/register")
-      .send({
-        name: "Owner",
-        email: "OWNER@example.com",
-        password: "StrongPassword123",
-      });
+    const registration = await owner.post("/api/auth/register").send({
+      name: "Owner",
+      email: "OWNER@example.com",
+      password: "StrongPassword123",
+    });
     assert.equal(registration.status, 201);
     assert.equal(registration.body.data.email, "owner@example.com");
     assert.ok(!JSON.stringify(registration.body).includes("password"));
@@ -67,13 +65,11 @@ test("database: complete account, website, audit, ownership, content and reset f
       id,
     ]);
     assert.notEqual(saved.password_hash, "StrongPassword123");
-    await stranger
-      .post("/api/auth/register")
-      .send({
-        name: "Other",
-        email: "other@example.com",
-        password: "AnotherPassword123",
-      });
+    await stranger.post("/api/auth/register").send({
+      name: "Other",
+      email: "other@example.com",
+      password: "AnotherPassword123",
+    });
     assert.equal(
       (
         await owner
@@ -82,13 +78,11 @@ test("database: complete account, website, audit, ownership, content and reset f
       ).status,
       400,
     );
-    const created = await owner
-      .post("/api/websites")
-      .send({
-        name: "Example",
-        url: "https://example.com",
-        description: "A test site",
-      });
+    const created = await owner.post("/api/websites").send({
+      name: "Example",
+      url: "https://example.com",
+      description: "A test site",
+    });
     assert.equal(created.status, 201);
     const websiteId = created.body.data.id;
     assert.equal(
@@ -137,7 +131,7 @@ test("database: complete account, website, audit, ownership, content and reset f
       404,
     );
     await db.query(
-      "UPDATE audits SET status='running',lease_expires_at=now()-interval '1 hour' WHERE id=$1",
+      "UPDATE audits SET status='running',active_website=website_id,lease_expires_at=now()-interval '1 hour' WHERE id=$1",
       [auditId],
     );
     const retryJobs = auditService(db, tools, {
@@ -153,14 +147,62 @@ test("database: complete account, website, audit, ownership, content and reset f
     assert.equal(result.status, "completed");
     assert.equal(result.pages.length, 1);
     assert.equal(result.issues.length, result.recommendations.length);
-    const duplicate = await owner.post("/api/audits").send({ websiteId });
-    assert.equal(duplicate.status, 202);
+    const competing = await Promise.all([
+      owner.post("/api/audits").send({ websiteId }),
+      owner.post("/api/audits").send({ websiteId }),
+    ]);
+    assert.deepEqual(competing.map((r) => r.status).sort(), [202, 409]);
+    const duplicate = competing.find((r) => r.status === 202);
+    assert.equal(
+      (
+        await one(
+          db,
+          "SELECT active_website AS marker FROM audits WHERE id=$1",
+          [duplicate.body.data.id],
+        )
+      ).marker,
+      websiteId,
+    );
     assert.equal(
       (await owner.post("/api/audits").send({ websiteId })).status,
       409,
     );
     assert.equal(
       (await owner.post("/api/audits/" + duplicate.body.data.id + "/run"))
+        .status,
+      200,
+    );
+    assert.equal(
+      (
+        await one(
+          db,
+          "SELECT active_website AS marker FROM audits WHERE id=$1",
+          [duplicate.body.data.id],
+        )
+      ).marker,
+      null,
+    );
+    const failed = await owner.post("/api/audits").send({ websiteId });
+    const failureJobs = auditService(db, tools, {
+      crawler: async () => {
+        throw new Error("TIMEOUT");
+      },
+    });
+    await failureJobs.run(failed.body.data.id);
+    assert.equal(
+      (
+        await one(
+          db,
+          "SELECT active_website AS marker FROM audits WHERE id=$1",
+          [failed.body.data.id],
+        )
+      ).marker,
+      null,
+    );
+    const afterFailure = await owner.post("/api/audits").send({ websiteId });
+    assert.equal(afterFailure.status, 202);
+    assert.equal(
+      (await owner.post("/api/audits/" + afterFailure.body.data.id + "/run"))
         .status,
       200,
     );
@@ -185,7 +227,7 @@ test("database: complete account, website, audit, ownership, content and reset f
       (await owner.get("/api/audits/" + auditId)).body.data.overall_score,
       result.overall_score,
     );
-    assert.equal((await owner.get("/api/audits")).body.data.length, 2);
+    assert.equal((await owner.get("/api/audits")).body.data.length, 4);
     assert.equal(
       (
         await owner

@@ -59,6 +59,7 @@ export async function openStore(config = {}, { migrate = true } = {}) {
     "002-product",
     "003-audit-target",
     "004-audit-leases",
+    "005-audit-active",
   ]) {
     const existing = await db.query(
       "SELECT name FROM app_migrations WHERE name=$1",

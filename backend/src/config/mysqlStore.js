@@ -141,6 +141,26 @@ export async function openMysqlStore(config, { migrate = true } = {}) {
             throw error;
           }
         }
+        // Upgrade existing installs without deleting any audit history.
+        const [[migration]] = await connection.query(
+          "SELECT name FROM app_migrations WHERE name='mysql-002-audit-active'",
+        );
+        if (!migration) {
+          const [[column]] = await connection.query(
+            "SELECT EXTRA AS extra FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='audits' AND COLUMN_NAME='active_website'",
+          );
+          if (/GENERATED/i.test(column?.extra || "")) {
+            await connection.query(
+              "ALTER TABLE audits DROP INDEX audits_one_active, DROP COLUMN active_website, ADD COLUMN active_website CHAR(36) CHARACTER SET ascii DEFAULT NULL, ADD UNIQUE KEY audits_one_active(active_website)",
+            );
+          }
+          await connection.query(
+            "UPDATE audits SET active_website=CASE WHEN status IN ('queued','running') THEN website_id ELSE NULL END",
+          );
+          await connection.query(
+            "INSERT IGNORE INTO app_migrations(name) VALUES('mysql-002-audit-active')",
+          );
+        }
       } finally {
         await connection.query(
           "SELECT RELEASE_LOCK(SHA2(CONCAT('seo-schema-', DATABASE()),256))",
