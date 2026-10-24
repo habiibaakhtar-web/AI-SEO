@@ -16,3 +16,8 @@ docs/screenshots/
 
 
 backend/.postgres-test/
+
+# Generated hosting output and private transfer artifacts
+hostinger/
+hostinger-deploy.zip
+backups/

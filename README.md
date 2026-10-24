@@ -1,6 +1,6 @@
 # AI SEO & Website Growth Agent
 
-A working local full-stack application with React, Express, PostgreSQL and a Python AI service.
+A full-stack React and Express application adapted for Hostinger Unlimited: MySQL in production and direct AI-provider calls from Node.js. Local development retains the existing embedded PostgreSQL data for compatibility. Python is not required.
 
 ## Open the product
 
@@ -11,7 +11,7 @@ cd D:\IT_HUB_INTERNSHIP\AI_SEO_WEBSITE
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. This one command starts the frontend, backend and Python service. Keep the terminal open; Ctrl+C stops them.
+Open **http://127.0.0.1:5173**. This one command starts the frontend and backend. AI calls run in Node.js. Keep the terminal open; Ctrl+C stops them.
 
 Create your own account, add a public website, and click **Run SEO audit**. Results are saved automatically. No demo login or fabricated audit data is used in the workspace.
 
@@ -46,7 +46,7 @@ No credentials are required for the embedded local database. External PostgreSQL
 
 Without an API key, the application works with **clearly labeled rule-based recommendations and draft templates**. The local assistant summarizes measured audit findings. It does not pretend to be a live language model.
 
-**Yes, OpenRouter is supported.** Put its key in `agent/.env`, never `frontend/.env.example`. The local configuration file is ready; fill in the blank key:
+**OpenRouter is supported directly in Node.js.** Put its key in `backend/.env` locally, or Hostinger environment variables in production. Existing local `agent/.env` LLM settings are also read for compatibility. Never place keys in frontend files. The local configuration file is ready; fill in the blank key:
 
 ```dotenv
 LLM_API_KEY=your_openrouter_key
@@ -61,7 +61,7 @@ For another compatible provider, set:
 - LLM_MODEL: your provider model.
 - LLM_API_URL: the provider's chat-completions endpoint, supporting messages and JSON-object responses.
 
-The Python service uses a configurable chat-completions-compatible HTTP API. The root dev launcher automatically shares the private service token. For separately launched services, set matching AGENT_SERVICE_TOKEN values in backend/.env and agent/.env. Restart after configuration changes. Never put provider keys in frontend environment variables or commit .env files.
+The Node backend uses a configurable chat-completions-compatible HTTP API with bounded responses, timeouts and grounded-output validation. Restart after configuration changes. Never put provider keys in frontend environment variables or commit .env files.
 
 Provider requests time out and validate response shape, issue IDs and severity. Invalid/unavailable provider results fall back to labeled rule guidance. Live paid-provider generation has not been verified without credentials.
 
@@ -71,21 +71,19 @@ Local development without SMTP returns a 30-minute reset link on the forgot-pass
 
 ## Fresh installation
 
-Node.js 22.12+, Python 3.11+:
+Node.js 22.12+ (24 recommended):
 
 ```powershell
 npm ci
-python -m venv agent/.venv
-agent/.venv/Scripts/python -m pip install -r agent/requirements-lock.txt
 npm run dev
 ```
 
-Python is optional for rule-based local operation; the launcher reports if its environment is missing. Production assets:
+Python is retained only as legacy source and is excluded from the Hostinger package. Production assets:
 ```powershell
 npm run build
 ```
 
-For production, configure backend NODE_ENV=production, DATABASE_URL, JWT_SECRET (at least 32 characters), FRONTEND_ORIGIN and HTTPS. Set HOST appropriately for your deployment. Run npm start to serve the compiled frontend and API from Express. Run the Python service separately with matching private service token if using AI. Embedded storage is disabled in production. The development launcher is intended for local use.
+For production use the MySQL DB_* variables, JWT_SECRET, exact HTTPS FRONTEND_ORIGIN, and optional LLM_* variables described in [the Hostinger temporary-domain guide](docs/hostinger.md). `npm start` serves React and the API from one process. No PostgreSQL or Python host is needed. A new Hostinger database starts fresh; existing local data is not overwritten or imported automatically.
 
 ## Verification
 
@@ -100,9 +98,6 @@ node scripts/check-crawl.js --audit https://example.com/
 ```powershell
 npm test
 npm run build
-Set-Location agent
-.venv/Scripts/python -m pytest -q
-Set-Location ..
 $env:PLAYWRIGHT_CHANNEL = 'chrome'
 npm run test:ui -- --workers=2
 ```
@@ -111,8 +106,10 @@ Installed Chrome is used here because the bundled Chromium download timed out. A
 
 ## Product limits and roadmap
 
-Crawls inspect up to 10 server-rendered HTML pages, not all pages or JavaScript-rendered content. Scores are heuristic health indicators, not ranking guarantees. External destinations, traffic and Core Web Vitals are not measured. Readability and keyword occurrence counts are informational. Review AI/template drafts before publishing.
+Crawls use a 55-second budget and inspect up to 10 server-rendered HTML pages, not all pages or JavaScript-rendered content. Scores are heuristic health indicators, not ranking guarantees. External destinations, traffic and Core Web Vitals are not measured. Readability and keyword occurrence counts are informational. Review AI/template drafts before publishing.
 
 Scheduled audits, notifications, billing, teams/agency features, competitor comparisons and third-party integrations remain future roadmap items. They are not presented as working product features.
 
 See [architecture](docs/architecture.md), [API](docs/api.md), [scoring](docs/scoring.md), [validation](docs/validation.md), [roadmap](docs/development-phases.md), and the original [requirements](requirements.md).
+
+Audits run through bounded requests while the details page is open. Interrupted jobs can resume after their two-minute lease expires. See the hosting guide for limits and MySQL tests (`npm run test:mysql` with a dedicated TEST_MYSQL_CONFIG database ending in `_test`).

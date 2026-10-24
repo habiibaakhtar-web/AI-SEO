@@ -7,7 +7,7 @@
     "backend"
   ],
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.12.0 <25"
   },
   "scripts": {
     "dev:frontend": "npm run dev --workspace frontend",
@@ -18,7 +18,10 @@
     "db:migrate": "npm run db:migrate --workspace backend",
     "db:status": "npm run db:status --workspace backend",
     "dev": "node server.js --dev",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:mysql": "node scripts/test-mysql.js",
+    "build:hostinger": "node scripts/build-hostinger.js",
+    "postinstall": "npm run build"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",
