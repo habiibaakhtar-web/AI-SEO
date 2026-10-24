@@ -62,13 +62,16 @@ export function parseEnvironment(source = process.env) {
     if (!["postgres:", "postgresql:"].includes(url.protocol))
       throw new Error("DATABASE_URL must be a PostgreSQL URL");
   }
-  if (
-    config.NODE_ENV === "production" &&
-    (!(config.DB_NAME && config.DB_USER) || config.JWT_SECRET.length < 32)
-  ) {
-    throw new Error(
-      "Production requires DB_NAME, DB_USER and JWT_SECRET of at least 32 characters",
+  if (config.NODE_ENV === "production") {
+    const missing = ["DB_NAME", "DB_USER", "JWT_SECRET"].filter(
+      (key) => !config[key],
     );
+    if (missing.length)
+      throw new Error(
+        "Missing production environment variables: " + missing.join(", "),
+      );
+    if (config.JWT_SECRET.length < 32)
+      throw new Error("JWT_SECRET must have at least 32 characters.");
   }
   if (
     config.NODE_ENV === "production" &&

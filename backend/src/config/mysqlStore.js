@@ -129,11 +129,18 @@ export async function openMysqlStore(config, { migrate = true } = {}) {
           new URL("../db/mysql-schema.sql", import.meta.url),
           "utf8",
         );
-        for (const sql of schema
+        const statements = schema
           .split(";")
-          .map((s) => s.trim())
-          .filter(Boolean))
-          await connection.query(sql);
+          .map((sql) => sql.trim())
+          .filter(Boolean);
+        for (const [index, sql] of statements.entries()) {
+          try {
+            await connection.query(sql);
+          } catch (error) {
+            error.schemaStatement = index + 1;
+            throw error;
+          }
+        }
       } finally {
         await connection.query(
           "SELECT RELEASE_LOCK(SHA2(CONCAT('seo-schema-', DATABASE()),256))",
