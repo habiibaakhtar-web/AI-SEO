@@ -11,7 +11,7 @@ const tools = toolService(config);
 const audits = auditService(database, tools);
 await audits.start();
 const server = createApp({ config, database, audits, tools }).listen(config.PORT, config.HOST, () => {
-  console.log('Backend running on http://127.0.0.1:' + config.PORT + ' (' + database.kind + ')');
+  console.log('Backend running on http://' + config.HOST + ':' + config.PORT + ' (' + database.kind + ')');
 });
 server.on('error', () => { console.error('Backend could not start. Check the port and configuration.'); process.exitCode = 1; });
 let closing = false;

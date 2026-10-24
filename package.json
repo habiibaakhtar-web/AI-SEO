@@ -17,8 +17,8 @@
     "test:ui": "playwright test",
     "db:migrate": "npm run db:migrate --workspace backend",
     "db:status": "npm run db:status --workspace backend",
-    "dev": "node scripts/dev.js",
-    "start": "npm run start --workspace backend"
+    "dev": "node server.js --dev",
+    "start": "node server.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",
